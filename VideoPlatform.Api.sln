@@ -1,0 +1,31 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.14.36121.58 d17.14
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "VideoPlatform.Api", "VideoPlatform.Api.csproj", "{6114D9A2-4E11-4ABF-83D3-F483A65CB6C5}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "JwtSecret", "..\JwtSecret\JwtSecret.csproj", "{20D8A21E-E196-4D98-B87B-6CBF555C0B2E}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{6114D9A2-4E11-4ABF-83D3-F483A65CB6C5}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{6114D9A2-4E11-4ABF-83D3-F483A65CB6C5}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{6114D9A2-4E11-4ABF-83D3-F483A65CB6C5}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{6114D9A2-4E11-4ABF-83D3-F483A65CB6C5}.Release|Any CPU.Build.0 = Release|Any CPU
+		{20D8A21E-E196-4D98-B87B-6CBF555C0B2E}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{20D8A21E-E196-4D98-B87B-6CBF555C0B2E}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{20D8A21E-E196-4D98-B87B-6CBF555C0B2E}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{20D8A21E-E196-4D98-B87B-6CBF555C0B2E}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {4E43C9AF-05A4-459B-B5FB-68B68ED72FE1}
+	EndGlobalSection
+EndGlobal
