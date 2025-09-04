@@ -3,6 +3,7 @@ using Microsoft.IdentityModel.Tokens;
 using SqlSugar;
 using System.Data;
 using System.Text;
+using VideoPlatform.Api.Middleware;
 using VideoPlatform.Api.Services;
 using DbType = SqlSugar.DbType;
 
@@ -20,14 +21,15 @@ ConfigureJwtAuthentication(builder.Services, builder.Configuration);
 // 其他服务配置
 builder.Services.AddMemoryCache();
 builder.Services.AddSingleton<IEmailService, MockEmailService>();
+builder.Services.AddScoped<ISettingsService, SettingsService>();
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
 var app = builder.Build();
 
-// 全局异常处理中间件
-app.UseExceptionHandler("/error");
+// 全局异常处理
+app.UseMiddleware<ErrorHandlingMiddleware>();
 
 if (app.Environment.IsDevelopment())
 {

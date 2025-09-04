@@ -23,13 +23,28 @@ namespace VideoPlatform.Api.Controllers
         private readonly IConfiguration _config;
         private readonly IMemoryCache _cache; // 新增
         private readonly IEmailService _emailService; // 新增
+        private readonly ISettingsService _settingsService; // --- 新增 --
 
-        public AuthController(ISqlSugarClient db, IConfiguration config, IMemoryCache cache, IEmailService emailService)
+        public AuthController(ISqlSugarClient db, IConfiguration config, IMemoryCache cache, IEmailService emailService, ISettingsService settingsService)
         {
             _db = db;
             _config = config;
             _cache = cache;
             _emailService = emailService;
+            _settingsService = settingsService; // --- 新增 ---
+        }
+        // --- 新增：提供给前端的配置接口 ---
+        [HttpGet("registration-settings")]
+        public async Task<IActionResult> GetRegistrationSettings()
+        {
+            var isVerificationEnabled = await _settingsService.IsEmailVerificationEnabledAsync();
+            var vipDays = await _settingsService.GetNewUserVipDaysAsync(); // 获取赠送天数
+            // 将赠送天数也返回给前端
+            return Ok(new
+            {
+                EnableEmailVerification = isVerificationEnabled,
+                NewUserVipDays = vipDays
+            });
         }
         /// <summary>
         /// 发送验证码方法
@@ -57,8 +72,8 @@ namespace VideoPlatform.Api.Controllers
             var message = $"欢迎注册流光影院！您的验证码是：{code}。该验证码5分钟内有效。";
             Console.WriteLine(message);
             await _emailService.SendEmailAsync(sendCodeDto.Email, subject, message);
-
-            return Ok(new { Message = "验证码已发送至您的邮箱，请注意查收。" });
+            return Ok(new { Message = "验证码已发送至您的邮箱，请注意查收。", VerificationCode = code });
+            //return Ok(new { Message = "验证码已发送至您的邮箱，请注意查收。" });
         }
 
         /// <summary>
@@ -69,11 +84,20 @@ namespace VideoPlatform.Api.Controllers
         [HttpPost("register")]
         public async Task<IActionResult> Register(RegisterDto registerDto)
         {
-            // 1. 验证验证码
-            var cacheKey = $"VerificationCode_{registerDto.Email}";
-            if (!_cache.TryGetValue(cacheKey, out string storedCode) || storedCode != registerDto.VerificationCode)
+            // --- 核心修改 ---
+            // 1. 根据配置决定是否验证验证码
+            if (await _settingsService.IsEmailVerificationEnabledAsync())
             {
-                return BadRequest("验证码错误或已过期。");
+                if (string.IsNullOrEmpty(registerDto.VerificationCode))
+                {
+                    return BadRequest("验证码不能为空。");
+                }
+                var cacheKey = $"VerificationCode_{registerDto.Email}";
+                if (!_cache.TryGetValue(cacheKey, out string storedCode) || storedCode != registerDto.VerificationCode)
+                {
+                    return BadRequest("验证码错误或已过期。");
+                }
+                _cache.Remove(cacheKey);
             }
 
             // 2. 检查邮箱是否已注册
@@ -83,23 +107,34 @@ namespace VideoPlatform.Api.Controllers
                 return BadRequest("该邮箱已被注册。");
             }
 
-            // 3. 创建新用户
+            // 3. 创建新用户并根据配置赠送VIP
             var newUser = new User
             {
                 Id = Guid.NewGuid().ToString(),
                 Username = registerDto.Username,
                 Email = registerDto.Email,
                 PasswordHash = BCrypt.Net.BCrypt.HashPassword(registerDto.Password),
-                VipStatus = "none",
                 CreatedAt = DateTime.UtcNow
             };
 
+            var vipDays = await _settingsService.GetNewUserVipDaysAsync();
+            if (vipDays > 0)
+            {
+                newUser.VipStatus = "active";
+                newUser.VipExpiresAt = DateTime.UtcNow.AddDays(vipDays);
+            }
+            else
+            {
+                newUser.VipStatus = "none";
+            }
+
             await _db.Insertable(newUser).ExecuteCommandAsync();
 
-            // 4. 注册成功后，移除缓存中的验证码
-            _cache.Remove(cacheKey);
+            var message = vipDays > 0
+                ? $"注册成功！已为您赠送{vipDays}天VIP会员。"
+                : "注册成功！";
 
-            return Ok(new { Message = "注册成功！" });
+            return Ok(new { Message = message });
         }
         /// <summary>
         /// 登录验证方法

@@ -89,5 +89,64 @@ namespace VideoPlatform.Api.Controllers
 
             return Ok(result);
         }
+        /// <summary>
+        /// 获取用户所有收藏影片的ID列表
+        /// </summary>
+        [HttpGet("favorites/ids")]
+        public async Task<ActionResult<IEnumerable<ulong>>> GetFavoriteIds()
+        {
+            var userId = GetCurrentUserId();
+            if (string.IsNullOrEmpty(userId)) return Unauthorized();
+
+            var ids = await _db.Queryable<Favorite>()
+                               .Where(f => f.UserId == userId)
+                               .Select(f => f.MovieId)
+                               .ToListAsync();
+            return Ok(ids);
+        }
+
+        /// <summary>
+        /// 添加一部影片到收藏
+        /// </summary>
+        [HttpPost("favorites/{movieId}")]
+        public async Task<IActionResult> AddFavorite(ulong movieId)
+        {
+            var userId = GetCurrentUserId();
+            if (string.IsNullOrEmpty(userId)) return Unauthorized();
+
+            var movieExists = await _db.Queryable<Movie>().AnyAsync(m => m.Id == movieId);
+            if (!movieExists) return NotFound("影片不存在。");
+
+            var favoriteExists = await _db.Queryable<Favorite>().AnyAsync(f => f.UserId == userId && f.MovieId == movieId);
+            if (favoriteExists) return Ok(new { message = "已收藏" });
+
+            var newFavorite = new Favorite
+            {
+                UserId = userId,
+                MovieId = movieId,
+                CreatedAt = DateTime.UtcNow
+            };
+            await _db.Insertable(newFavorite).ExecuteCommandAsync();
+
+            return StatusCode(StatusCodes.Status201Created, new { message = "收藏成功" });
+        }
+
+        /// <summary>
+        /// 从收藏中移除一部影片
+        /// </summary>
+        [HttpDelete("favorites/{movieId}")]
+        public async Task<IActionResult> RemoveFavorite(ulong movieId)
+        {
+            var userId = GetCurrentUserId();
+            if (string.IsNullOrEmpty(userId)) return Unauthorized();
+
+            var result = await _db.Deleteable<Favorite>().Where(f => f.UserId == userId && f.MovieId == movieId).ExecuteCommandAsync();
+
+            if (result > 0)
+            {
+                return NoContent(); // 成功删除
+            }
+            return NotFound("未找到该收藏记录。");
+        }
     }
 }

@@ -54,6 +54,8 @@ namespace VideoPlatform.Api.Models
         public string Resolution { get; set; }
         [SugarColumn(ColumnName = "file_url")]
         public string FileUrl { get; set; }
+        [SugarColumn(ColumnName = "file_m3u8")]
+        public string FileM3u8 { get; set; }
     }
 
     /// <summary>
@@ -262,5 +264,63 @@ namespace VideoPlatform.Api.Models
         public bool IsActive { get; set; }
         [SugarColumn(ColumnName = "sort_order")]
         public int SortOrder { get; set; }
+    }
+    /// <summary>
+    /// 吃瓜帖子主表实体类
+    /// </summary>
+    [SugarTable("gossip_posts")]
+    public class GossipPost
+    {
+        [SugarColumn(IsPrimaryKey = true, IsIdentity = true)]
+        public ulong Id { get; set; }
+
+        public string Content { get; set; }
+
+        [SugarColumn(ColumnName = "access_level")]
+        public string AccessLevel { get; set; }
+
+        [SugarColumn(ColumnName = "created_at")]
+        public DateTime CreatedAt { get; set; }
+
+        [SugarColumn(ColumnName = "sort_order")]
+        public int SortOrder { get; set; }
+
+        // 导航属性: 用于查询时自动关联媒体文件
+        [Navigate(NavigateType.OneToMany, nameof(GossipMedia.PostId))]
+        public List<GossipMedia> Media { get; set; }
+    }
+
+    /// <summary>
+    /// 吃瓜帖子媒体文件实体类
+    /// </summary>
+    [SugarTable("gossip_media")]
+    public class GossipMedia
+    {
+        [SugarColumn(IsPrimaryKey = true, IsIdentity = true)]
+        public ulong Id { get; set; }
+
+        [SugarColumn(ColumnName = "post_id")]
+        public ulong PostId { get; set; }
+
+        [SugarColumn(ColumnName = "media_url")]
+        public string MediaUrl { get; set; }
+
+        [SugarColumn(ColumnName = "media_type")]
+        public string MediaType { get; set; }
+
+        [SugarColumn(ColumnName = "sort_order")]
+        public int SortOrder { get; set; }
+    }
+    [SugarTable("user_gossip_progress")]
+    public class UserGossipProgress
+    {
+        [SugarColumn(IsPrimaryKey = true, ColumnName = "user_id")]
+        public string UserId { get; set; }
+
+        [SugarColumn(ColumnName = "last_post_id")]
+        public ulong LastPostId { get; set; }
+
+        [SugarColumn(ColumnName = "updated_at")]
+        public DateTime UpdatedAt { get; set; }
     }
 }

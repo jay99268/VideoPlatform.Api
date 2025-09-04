@@ -1,4 +1,5 @@
-﻿using System;
+﻿using SqlSugar;
+using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 namespace VideoPlatform.Api.DTOs
@@ -72,7 +73,7 @@ namespace VideoPlatform.Api.DTOs
         public string Username { get; set; }
         public string Email { get; set; }
         public string Password { get; set; }
-        public string VerificationCode { get; set; }
+        public string? VerificationCode { get; set; } // 设为可空，表示可选
     }
     /// <summary>
     /// 登录请求DTO
@@ -123,6 +124,9 @@ namespace VideoPlatform.Api.DTOs
     {
         public string Resolution { get; set; } // 例如: "1080p", "720p"
         public string FileUrl { get; set; }
+
+        // --- 新增 ---
+        public string FileM3u8 { get; set; }
     }
 
     /// <summary>
@@ -130,7 +134,10 @@ namespace VideoPlatform.Api.DTOs
     /// </summary>
     public class PlayDataDto
     {
-        public List<MovieFileDto> MovieFiles { get; set; } = new List<MovieFileDto>();
+        // --- 修改 ---
+        // 不再返回列表，只返回一个 m3u8 清单文件
+        public string FileUrl { get; set; }
+        public string FileM3u8 { get; set; }
     }
     /// <summary>
     /// 用于新增影片的数据传输对象
@@ -170,5 +177,76 @@ namespace VideoPlatform.Api.DTOs
     {
         [Required]
         public List<ulong> MovieIds { get; set; }
+    }
+
+    /// <summary>
+    /// 用于标准化API错误响应的数据传输对象
+    /// </summary>
+    public class ErrorResponseDto
+    {
+        public string Message { get; set; }
+        // 这个字段只在开发环境中填充，用于调试
+        public string Details { get; set; }
+    }
+    /// <summary>
+    /// 吃瓜帖子媒体文件 DTO
+    /// </summary>
+    public class GossipMediaDto
+    {
+        public string MediaUrl { get; set; }
+        public string MediaType { get; set; }
+    }
+
+    /// <summary>
+    /// 吃瓜帖子 DTO
+    /// </summary>
+    public class GossipPostDto
+    {
+        public ulong Id { get; set; }
+        public string Content { get; set; }
+        public DateTime CreatedAt { get; set; }
+        public List<GossipMediaDto> Media { get; set; } = new List<GossipMediaDto>();
+    }
+    /// <summary>
+    /// 用于更新用户浏览进度的 DTO
+    /// </summary>
+    public class UpdateGossipProgressDto
+    {
+        [Required]
+        public ulong LastPostId { get; set; }
+    }
+
+    /// <summary>
+    /// 用于吃瓜中心初始加载的特殊响应 DTO
+    /// </summary>
+    public class GossipInitialLoadDto
+    {
+        public List<GossipPostDto> Items { get; set; } = new List<GossipPostDto>();
+        public ulong? LastSeenId { get; set; } // 用户上次看到的位置
+        public bool HasMoreHistory { get; set; } // 是否还有更早的历史消息
+    }
+    /// <summary>
+    /// 用于吃瓜中心列表的统一响应 DTO
+    /// </summary>
+    public class GossipListDto
+    {
+        public List<GossipPostDto> Items { get; set; } = new List<GossipPostDto>();
+        public ulong? LastSeenId { get; set; } // 仅在初始加载时提供
+        public bool HasMoreHistory { get; set; }
+        public bool HasMoreNew { get; set; }
+    }
+    /// <summary>
+    /// 应用配置表实体类
+    /// </summary>
+    [SugarTable("app_settings")]
+    public class AppSetting
+    {
+        [SugarColumn(IsPrimaryKey = true, ColumnName = "setting_key")]
+        public string SettingKey { get; set; }
+
+        [SugarColumn(ColumnName = "setting_value")]
+        public string SettingValue { get; set; }
+
+        public string Description { get; set; }
     }
 }

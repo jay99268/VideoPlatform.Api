@@ -87,7 +87,7 @@ namespace VideoPlatform.Api.Controllers
             };
 
             return Ok(result);
-        
+
         }
 
         [HttpGet("{id}")]
@@ -122,9 +122,9 @@ namespace VideoPlatform.Api.Controllers
         /// 获取电影播放链接
         /// </summary>
         /// <param name="id">电影ID</param>
-        /// <returns>包含各分辨率播放链接的数据</returns>
+        /// <returns>包含 m3u8 清单的播放数据</returns>
         [HttpGet("{id}/play")]
-        [AllowAnonymous] // 允许匿名访问，在方法内部进行权限检查
+        [AllowAnonymous]
         public async Task<ActionResult<PlayDataDto>> GetPlayData(ulong id)
         {
             var movie = await _db.Queryable<Movie>().InSingleAsync(id);
@@ -133,7 +133,6 @@ namespace VideoPlatform.Api.Controllers
                 return NotFound("找不到指定的电影。");
             }
 
-            // 如果是VIP电影，则需要进行权限验证
             if (movie.MonetizationType?.ToLower() == "vip")
             {
                 var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
@@ -145,33 +144,30 @@ namespace VideoPlatform.Api.Controllers
                 var user = await _db.Queryable<User>().InSingleAsync(userId);
                 if (user == null || user.VipStatus?.ToLower() != "active" || !(user.VipExpiresAt > DateTime.UtcNow))
                 {
-                    return Forbid("此内容为VIP专属，请先开通会员。");
+                    return StatusCode(StatusCodes.Status403Forbidden, "此内容为VIP专属，请先开通会员。");
                 }
             }
 
-            // 如果是付费电影（暂未实现）
             if (movie.MonetizationType?.ToLower() == "paid")
             {
-                return Forbid("暂不支持付费点播影片。");
+                return StatusCode(StatusCodes.Status403Forbidden, "暂不支持付费点播影片。");
             }
 
-            // 权限验证通过或电影是免费的，获取播放链接
-            var movieFiles = await _db.Queryable<MovieFile>()
-                                      .Where(mf => mf.MovieId == id)
-                                      .ToListAsync();
+            // --- 核心修改 ---
+            // 查找第一个包含有效 m3u8 链接的记录
+            var movieFile = await _db.Queryable<MovieFile>()
+                                      .Where(mf => mf.MovieId == id && (!string.IsNullOrEmpty(mf.FileM3u8) || !string.IsNullOrEmpty(mf.FileUrl)))
+                                      .FirstAsync();
 
-            if (movieFiles == null || !movieFiles.Any())
+            if (movieFile == null)
             {
                 return NotFound("未找到该电影的播放资源。");
             }
 
             var playData = new PlayDataDto
             {
-                MovieFiles = movieFiles.Select(mf => new MovieFileDto
-                {
-                    Resolution = mf.Resolution,
-                    FileUrl = mf.FileUrl
-                }).ToList()
+                FileM3u8 = movieFile.FileM3u8,
+                FileUrl = movieFile.FileUrl // 赋予 FileUrl
             };
 
             return Ok(playData);
@@ -180,27 +176,46 @@ namespace VideoPlatform.Api.Controllers
         [HttpGet("{id}/related")]
         public async Task<ActionResult<IEnumerable<MovieDto>>> GetRelatedMovies(ulong id)
         {
-            var movieTags = await _db.Queryable<Tag>()
-                                     .Where(t => _db.Queryable<MovieTag>()
-                                     .Where(mt => mt.MovieId == id)
-                                     .Select(mt => mt.TagId).ToList().Contains(t.Id))
-                                     .Select(t => t.Id)
-                                     .ToListAsync();
+            // --- 核心修复 ---
+            // 1. 先获取当前影片的所有标签ID
+            var movieTagIds = await _db.Queryable<MovieTag>()
+                                       .Where(mt => mt.MovieId == id)
+                                       .Select(mt => mt.TagId)
+                                       .ToListAsync();
 
-            if (movieTags == null || !movieTags.Any())
+            if (movieTagIds == null || !movieTagIds.Any())
             {
                 return Ok(new List<MovieDto>());
             }
 
+            // 2. 找出包含这些标签的其他影片的ID
+            var relatedMovieIds = await _db.Queryable<MovieTag>()
+                                           .Where(mt => movieTagIds.Contains(mt.TagId) && mt.MovieId != id)
+                                           .Select(mt => mt.MovieId)
+                                           .Distinct()
+                                           .ToListAsync();
+
+            if (relatedMovieIds == null || !relatedMovieIds.Any())
+            {
+                return Ok(new List<MovieDto>());
+            }
+
+            // 3. 根据ID列表获取影片信息
             var relatedMovies = await _db.Queryable<Movie>()
-                                         .Where(m => m.Id != id && _db.Queryable<MovieTag>()
-                                         .Where(mt => movieTags.Contains(mt.TagId))
-                                         .Select(mt => mt.MovieId).ToList().Contains(m.Id))
-                                         .Take(6) // 获取最多6个相关电影
+                                         .Where(m => relatedMovieIds.Contains(m.Id))
+                                         .Take(6)
                                          .ToListAsync();
 
-            // 此处省略了到DTO的映射，为简化起见。在实际项目中，您应该完成映射。
-            return Ok(relatedMovies);
+            // 映射到 DTO
+            var movieDtos = relatedMovies.Select(m => new MovieDto
+            {
+                Id = m.Id,
+                Title = m.Title,
+                PosterUrlVertical = m.PosterUrlVertical,
+                MonetizationType = m.MonetizationType
+            }).ToList();
+
+            return Ok(movieDtos);
         }
 
         [HttpGet("{id}/comments")]
